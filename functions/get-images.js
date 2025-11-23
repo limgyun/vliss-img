@@ -1,33 +1,26 @@
-// functions/get-images.js（后端接口，用于读取 images 文件夹的图片列表）
+// functions/get-images.js（极简版，只保留必要逻辑）
 export async function onRequest(context) {
   try {
-    const { request, env, params } = context;
-    const imageDir = './images'; // 图片文件夹路径（相对于仓库根目录）
+    // 1. 读取 images 文件夹（固定 prefix 为 "images/"）
+    const files = await context.env.ASSETS.list({ prefix: "images/" });
     
-    // 读取 images 文件夹的所有文件（Cloudflare Pages Functions 内置文件系统访问）
-    const files = await env.ASSETS.list({ prefix: imageDir });
+    // 2. 只保留有后缀的文件（不限制格式，简化过滤）
+    const imageNames = files
+      .filter(file => !file.name.endsWith('/')) // 排除文件夹
+      .map(file => file.name.replace("images/", "")) // 只留文件名
+      .filter(name => name.includes('.')); // 确保有后缀
     
-    // 支持的图片格式
-    const supportedFormats = ['.jpg', '.png', '.webp', '.jpeg', '.gif'];
-    
-    // 过滤图片文件，获取文件名
-    const imageFiles = files
-      .filter(file => {
-        const ext = file.name.slice(-4).toLowerCase();
-        return supportedFormats.includes(ext);
-      })
-      .map(file => file.name.replace(`${imageDir}/`, '')) // 只保留文件名（如 slide1.jpg）
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); // 按文件名排序
-    
-    // 返回图片列表（JSON 格式）
-    return new Response(JSON.stringify({ success: true, images: imageFiles }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // 3. 返回结果
+    return new Response(JSON.stringify({
+      success: true,
+      images: imageNames,
+      total: imageNames.length
+    }), { headers: { 'Content-Type': 'application/json' } });
+
   } catch (error) {
-    console.error(error);
-    return new Response(JSON.stringify({ success: false, message: '获取图片失败' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({
+      success: false,
+      message: error.message
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
