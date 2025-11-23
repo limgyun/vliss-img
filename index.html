@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5秒自动切换图片（纯自动）</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; display: flex; justify-content: center; align-items: center; background: #f0f0f0; padding: 20px; }
+    .carousel-container { width: 100%; max-width: 800px; height: 450px; overflow: hidden; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .carousel-slides { position: relative; width: 100%; height: 100%; }
+    .carousel-slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; z-index: 1; }
+    .carousel-slide.active { opacity: 1; z-index: 2; }
+    .carousel-slide img { width: 100%; height: 100%; object-fit: cover; }
+    @media (max-width: 768px) { .carousel-container { height: 300px; } }
+    @media (max-width: 480px) { .carousel-container { height: 220px; } }
+  </style>
+</head>
+<body>
+  <div class="carousel-container">
+    <div class="carousel-slides">
+      <div class="carousel-slide active"><img src="images/slide1.jpg" alt="图片1" loading="lazy"></div>
+      <div class="carousel-slide"><img src="images/slide2.png" alt="图片2" loading="lazy"></div>
+      <div class="carousel-slide"><img src="images/slide3.webp" alt="图片3" loading="lazy"></div>
+      <div class="carousel-slide"><img src="images/slide4.jpg" alt="图片4" loading="lazy"></div>
+    </div>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.carousel-slide');
+    let currentIndex = 0;
+    setInterval(() => {
+      currentIndex = (currentIndex + 1) % slides.length;
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === currentIndex));
+    }, 5000); // 5秒切换
+  </script>
+</body>
+</html>
