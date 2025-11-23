@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>5秒自动切换图片（纯自动）</title>
+  <title>自动识别图片 - 5秒轮播（无需手动写标签）</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { min-height: 100vh; display: flex; justify-content: center; align-items: center; background: #f0f0f0; padding: 20px; }
@@ -12,6 +12,8 @@
     .carousel-slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.8s ease; z-index: 1; }
     .carousel-slide.active { opacity: 1; z-index: 2; }
     .carousel-slide img { width: 100%; height: 100%; object-fit: cover; }
+    /* 加载提示样式 */
+    .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; font-size: 18px; }
     @media (max-width: 768px) { .carousel-container { height: 300px; } }
     @media (max-width: 480px) { .carousel-container { height: 220px; } }
   </style>
@@ -19,20 +21,113 @@
 <body>
   <div class="carousel-container">
     <div class="carousel-slides">
-      <div class="carousel-slide active"><img src="images/slide1.jpg" alt="图片1" loading="lazy"></div>
-      <div class="carousel-slide"><img src="images/slide2.png" alt="图片2" loading="lazy"></div>
-      <div class="carousel-slide"><img src="images/slide3.webp" alt="图片3" loading="lazy"></div>
-      <div class="carousel-slide"><img src="images/slide4.jpg" alt="图片4" loading="lazy"></div>
+      <!-- 加载提示：图片未识别完成前显示 -->
+      <div class="loading">加载图片中...</div>
     </div>
   </div>
 
   <script>
-    const slides = document.querySelectorAll('.carousel-slide');
+    // --------------------------
+    // 配置区：替换为你的 GitHub 信息
+    // --------------------------
+    const GITHUB_CONFIG = {
+      username: "limgyun",    // 必须改！比如：octocat
+      repo: "vliss-img",             // 必须改！比如：image-slider-page
+      branch: "main",                 // 仓库分支（默认 main 或 master，按需改）
+      imageDir: "images"              // 图片文件夹名（固定为 images，无需改）
+    };
+
+    // 支持的图片格式（可按需添加，比如 .jpeg .gif）
+    const SUPPORTED_FORMATS = ['.jpg', '.png', '.webp', '.jpeg', '.gif'];
+
+    // 轮播核心变量
+    let slides = [];
+    let totalSlides = 0;
     let currentIndex = 0;
-    setInterval(() => {
-      currentIndex = (currentIndex + 1) % slides.length;
-      slides.forEach((slide, i) => slide.classList.toggle('active', i === currentIndex));
-    }, 5000); // 5秒切换
+
+    // 1. 调用 GitHub API 获取 images 文件夹的图片列表
+    async function fetchImagesFromGitHub() {
+      try {
+        // GitHub API 地址：获取指定目录下的文件列表
+        const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.imageDir}?ref=${GITHUB_CONFIG.branch}`;
+        
+        // 发送请求（公开仓库无需授权）
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error("获取图片列表失败");
+        
+        const files = await response.json();
+        // 过滤出支持的图片文件（排除文件夹和非图片格式）
+        const imageFiles = files.filter(file => {
+          // 排除文件夹（GitHub API 中 type 为 "dir" 是文件夹）
+          if (file.type !== "file") return false;
+          // 检查文件后缀是否在支持的格式中
+          const fileExt = file.name.slice(-4).toLowerCase();
+          return SUPPORTED_FORMATS.includes(fileExt);
+        });
+
+        // 按文件名排序（确保轮播顺序固定：slide1.jpg → slide2.png → ...）
+        imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        
+        return imageFiles;
+      } catch (error) {
+        console.error("错误：", error);
+        document.querySelector('.loading').textContent = "图片加载失败，请检查配置";
+        return [];
+      }
+    }
+
+    // 2. 动态生成轮播标签
+    async function renderCarousel() {
+      const imageFiles = await fetchImagesFromGitHub();
+      const slidesContainer = document.querySelector('.carousel-slides');
+      
+      // 清除加载提示
+      slidesContainer.innerHTML = "";
+
+      // 无图片时显示提示
+      if (imageFiles.length === 0) {
+        slidesContainer.innerHTML = '<div class="loading">images 文件夹中未找到图片</div>';
+        return;
+      }
+
+      // 动态生成每个图片的轮播标签
+      imageFiles.forEach((file, index) => {
+        // 图片的 GitHub 原始访问地址（无需手动拼接）
+        const imageUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.imageDir}/${file.name}`;
+        
+        // 创建轮播标签
+        const slideDiv = document.createElement('div');
+        slideDiv.className = `carousel-slide ${index === 0 ? 'active' : ''}`; // 第一个图片激活
+        slideDiv.innerHTML = `<img src="${imageUrl}" alt="图片${index + 1}" loading="lazy">`;
+        
+        // 添加到容器中
+        slidesContainer.appendChild(slideDiv);
+      });
+
+      // 初始化轮播变量（此时已动态生成所有标签）
+      slides = document.querySelectorAll('.carousel-slide');
+      totalSlides = slides.length;
+
+      // 启动轮播
+      startCarousel();
+    }
+
+    // 3. 轮播切换逻辑（和之前一致）
+    function startCarousel() {
+      if (totalSlides <= 1) return; // 只有1张图时不切换
+
+      setInterval(() => {
+        // 隐藏当前图
+        slides[currentIndex].classList.remove('active');
+        // 计算下一张索引（循环）
+        currentIndex = (currentIndex + 1) % totalSlides;
+        // 显示下一张图
+        slides[currentIndex].classList.add('active');
+      }, 5000); // 5秒切换
+    }
+
+    // 页面加载完成后，启动整个流程
+    document.addEventListener('DOMContentLoaded', renderCarousel);
   </script>
 </body>
 </html>
