@@ -5,11 +5,11 @@ const CONFIG = {
     // 图片源配置（选择一种或多种）
     IMAGE_SOURCES: [
         // 1. Picsum Photos（无需API密钥，推荐）
-        {
-            type: 'picsum',
-            width: 1200,  // 图片宽度
-            height: 800   // 图片高度
-        },
+        //{
+        //    type: 'picsum',
+        //    width: 800,  // 图片宽度
+        //    height: 800   // 图片高度
+        //},
         // 2. Unsplash（需要API密钥，可选）
         // {
         //     type: 'unsplash',
@@ -19,12 +19,12 @@ const CONFIG = {
         //     height: 800
         // },
         // 3. GitHub仓库图片（需要配置仓库信息，可选）
-        // {
-        //     type: 'github',
-        //     username: 'YOUR_GITHUB_USERNAME',
-        //     repo: 'YOUR_IMAGE_REPO',
-        //     path: 'images/'  // 图片文件夹路径
-        // }
+        {
+             type: 'github',
+             username: 'limgyun',
+             repo: 'vliss-images',
+             path: 'images/'  // 图片文件夹路径
+         }
     ],
     // 重试次数（图片加载失败时）
     RETRY_COUNT: 3
