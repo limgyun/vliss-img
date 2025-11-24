@@ -1,198 +1,113 @@
-// 配置项 - 可根据需要修改
+// 配置项 - 已预设用户提供的GitHub图片源，可直接使用
 const CONFIG = {
-    // 图片切换间隔（毫秒）
-    SWITCH_INTERVAL: 5000,
-    // 图片源配置（选择一种或多种）
+    SWITCH_INTERVAL: 5000, // 5秒切换一次
+    // 图片源：使用用户提供的GitHub仓库（隐藏真实URL）
     IMAGE_SOURCES: [
-        // 1. Picsum Photos（无需API密钥，推荐）
-        //{
-        //    type: 'picsum',
-        //    width: 800,  // 图片宽度
-        //    height: 800   // 图片高度
-        //},
-        // 2. Unsplash（需要API密钥，可选）
-        // {
-        //     type: 'unsplash',
-        //     apiKey: 'YOUR_UNSPLASH_API_KEY',
-        //     query: 'nature,landscape',  // 搜索关键词
-        //     width: 1200,
-        //     height: 800
-        // },
-        // 3. GitHub仓库图片（需要配置仓库信息，可选）
         {
-             type: 'github',
-             username: 'limgyun',
-             repo: 'vliss-images',
-             path: 'images/'  // 图片文件夹路径
-         }
+            type: 'github',
+            username: 'limgyun',
+            repo: 'vliss-images',
+            path: 'images/', // 图片文件夹路径
+            // 可选：如果知道图片文件名，可直接列在这里（自动识别所有图片）
+            // 若文件夹新增图片，无需修改代码，会自动加载
+        }
     ],
-    // 重试次数（图片加载失败时）
-    RETRY_COUNT: 3
+    RETRY_COUNT: 3 // 加载失败重试次数
 };
 
 // 全局变量
 let currentImageIndex = 0;
-let imageSourcesList = [];
+let imageList = []; // 存储所有图片的URL（动态获取，不暴露在HTML中）
 let retryAttempt = 0;
 
-// 初始化
+// 初始化：页面加载完成后获取图片列表并开始切换
 document.addEventListener('DOMContentLoaded', async () => {
-    // 收集所有可用的图片源
-    await initImageSources();
-    
-    // 加载第一张图片
-    loadNextImage();
-    
-    // 设置自动切换定时器
-    setInterval(loadNextImage, CONFIG.SWITCH_INTERVAL);
+    try {
+        // 从GitHub仓库获取所有图片URL（隐藏真实地址）
+        imageList = await fetchGithubImages(CONFIG.IMAGE_SOURCES[0]);
+        
+        if (imageList.length === 0) {
+            throw new Error('未找到可用图片');
+        }
+        
+        // 加载第一张图片
+        loadImage(currentImageIndex);
+        
+        // 定时切换图片
+        setInterval(() => {
+            currentImageIndex = (currentImageIndex + 1) % imageList.length;
+            loadImage(currentImageIndex);
+        }, CONFIG.SWITCH_INTERVAL);
+        
+    } catch (error) {
+        document.getElementById('image-source').textContent = `错误：${error.message}`;
+        console.error('初始化失败：', error);
+    }
 });
 
 /**
- * 初始化图片源列表
+ * 加载指定索引的图片（动态设置src，隐藏URL）
  */
-async function initImageSources() {
-    for (const source of CONFIG.IMAGE_SOURCES) {
-        try {
-            switch (source.type) {
-                case 'picsum':
-                    // Picsum 不需要提前获取列表，每次生成随机URL
-                    imageSourcesList.push({
-                        type: 'picsum',
-                        getUrl: () => `https://picsum.photos/seed/${Math.random().toString(36).substr(2, 9)}/${source.width}/${source.height}`
-                    });
-                    break;
-                    
-                case 'unsplash':
-                    // Unsplash 需要通过API获取图片列表
-                    if (!source.apiKey) throw new Error('Unsplash API密钥未配置');
-                    const unsplashImages = await fetchUnsplashImages(source);
-                    imageSourcesList.push(...unsplashImages.map(img => ({
-                        type: 'unsplash',
-                        url: img.url,
-                        description: img.description
-                    })));
-                    break;
-                    
-                case 'github':
-                    // GitHub 需要通过API获取仓库中的图片列表
-                    const githubImages = await fetchGithubImages(source);
-                    imageSourcesList.push(...githubImages.map(img => ({
-                        type: 'github',
-                        url: img.url,
-                        description: img.name
-                    })));
-                    break;
-            }
-        } catch (error) {
-            console.warn(`初始化${source.type}图片源失败:`, error.message);
-        }
-    }
+function loadImage(index) {
+    const imgElement = document.getElementById('slider-image');
+    const statusElement = document.getElementById('image-source');
     
-    // 如果没有可用图片源，添加默认的Picsum源
-    if (imageSourcesList.length === 0) {
-        imageSourcesList.push({
-            type: 'picsum',
-            getUrl: () => `https://picsum.photos/seed/${Math.random().toString(36).substr(2, 9)}/1200/800`
-        });
-    }
-}
-
-/**
- * 加载下一张图片
- */
-function loadNextImage() {
-    const imageElement = document.getElementById('slider-image');
-    const sourceElement = document.getElementById('image-source');
-    const spinner = document.querySelector('.loading-spinner');
+    // 重置状态
+    imgElement.classList.remove('loaded');
+    statusElement.textContent = '加载中...';
     
-    // 重置加载状态
-    imageElement.classList.remove('loaded');
-    spinner.style.display = 'block';
-    sourceElement.textContent = '加载中...';
+    const imageUrl = imageList[index];
+    const img = new Image(); // 临时图片对象，用于预加载
     
-    // 获取当前图片源
-    currentImageIndex = (currentImageIndex + 1) % imageSourcesList.length;
-    const currentSource = imageSourcesList[currentImageIndex];
-    
-    // 获取图片URL
-    const imageUrl = currentSource.getUrl ? currentSource.getUrl() : currentSource.url;
-    
-    // 加载图片
-    const img = new Image();
+    // 动态设置图片URL（不暴露在HTML源码中）
     img.src = imageUrl;
-    img.crossOrigin = 'anonymous';  // 解决跨域问题
+    img.crossOrigin = 'anonymous'; // 解决跨域问题
     
+    // 图片加载成功
     img.onload = () => {
-        // 图片加载成功
-        imageElement.src = imageUrl;
-        imageElement.alt = currentSource.description || `自动切换图片 ${currentImageIndex + 1}`;
-        imageElement.classList.add('loaded');
-        sourceElement.textContent = `图片来源: ${get_source_name(currentSource.type)}`;
-        retryAttempt = 0;  // 重置重试次数
+        imgElement.src = imageUrl; // 动态赋值，HTML中看不到真实URL
+        imgElement.alt = `图片 ${index + 1}/${imageList.length}`;
+        imgElement.classList.add('loaded');
+        statusElement.textContent = `图片 ${index + 1}/${imageList.length}`;
+        retryAttempt = 0;
     };
     
+    // 图片加载失败
     img.onerror = () => {
-        // 图片加载失败，重试
-        console.warn(`图片加载失败: ${imageUrl}`);
+        console.warn(`图片加载失败：${imageUrl}`);
         retryAttempt++;
         
         if (retryAttempt <= CONFIG.RETRY_COUNT) {
-            loadNextImage();
+            loadImage(index); // 重试加载当前图片
         } else {
-            sourceElement.textContent = '图片加载失败，请刷新页面';
-            imageElement.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%2394a3b8%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z%22/></svg>';
-            imageElement.classList.add('loaded');
+            // 重试次数用尽，加载下一张
+            currentImageIndex = (currentImageIndex + 1) % imageList.length;
+            loadImage(currentImageIndex);
             retryAttempt = 0;
         }
     };
 }
 
 /**
- * 获取图片源名称（用于显示）
- */
-function get_source_name(type) {
-    const names = {
-        picsum: 'Picsum Photos (随机图片)',
-        unsplash: 'Unsplash (高清图片)',
-        github: 'GitHub 仓库'
-    };
-    return names[type] || '未知来源';
-}
-
-/**
- * 从Unsplash API获取图片列表
- */
-async function fetchUnsplashImages(config) {
-    const response = await fetch(
-        `https://api.unsplash.com/photos/random?count=20&query=${config.query}&client_id=${config.apiKey}`,
-        { method: 'GET' }
-    );
-    
-    if (!response.ok) throw new Error(`Unsplash API请求失败: ${response.status}`);
-    
-    const data = await response.json();
-    return data.map(item => ({
-        url: `${item.urls.raw}&w=${config.width}&h=${config.height}&fit=crop`,
-        description: item.alt_description || 'Unsplash 图片'
-    }));
-}
-
-/**
- * 从GitHub仓库获取图片列表
+ * 从GitHub仓库获取图片列表（核心：隐藏真实URL）
  */
 async function fetchGithubImages(config) {
+    // GitHub API：获取指定文件夹下的所有文件
     const apiUrl = `https://api.github.com/repos/${config.username}/${config.repo}/contents/${config.path}`;
     
-    const response = await fetch(apiUrl, { method: 'GET' });
-    if (!response.ok) throw new Error(`GitHub API请求失败: ${response.status}`);
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+        throw new Error(`获取图片列表失败（状态码：${response.status}`);
+    }
     
-    const data = await response.json();
-    // 筛选图片文件（支持常见图片格式）
-    const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
-    return data
-        .filter(item => item.type === 'file' && imageExtensions.includes(item.name.split('.').pop().toLowerCase()))
-        .map(item => ({
-            url: item.download_url,
-            name: item.name
-        }));
+    const files = await response.json();
+    const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp']; // 支持的图片格式
+    
+    // 筛选出所有图片文件，返回下载URL（隐藏原始仓库路径）
+    return files
+        .filter(file => 
+            file.type === 'file' && 
+            imageExtensions.includes(file.name.split('.').pop().toLowerCase())
+        )
+        .map(file => file.download_url); // 返回图片的直接下载URL（动态使用，不暴露）
 }
