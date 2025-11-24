@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动切换图片展示</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><circle cx=%2264%22 cy=%2264%22 r=%2260%22 fill=%22%23f0f0f0%22/><path d=%22M64 20c-24.4 0-44 19.6-44 44s19.6 44 44 44 44-19.6 44-44-19.6-44-44-44zm0 80c-20 0-36-16-36-36s16-36 36-36 36 16 36 36-16 36-36 36z%22 fill=%22%236366f1%22/></svg>" type="image/svg+xml">
+</head>
+<body>
+    <div class="container">
+        <h1>自动切换图片展示</h1>
+        <div class="image-container">
+            <img id="slider-image" alt="自动切换图片" loading="lazy">
+        </div>
+        <div class="status-bar">
+            <span id="image-source">加载中...</span>
+            <span id="switch-interval">切换间隔：5秒</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
