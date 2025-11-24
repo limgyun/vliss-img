@@ -110,4 +110,5 @@ async function fetchGithubImages(config) {
             imageExtensions.includes(file.name.split('.').pop().toLowerCase())
         )
         .map(file => file.download_url); // 返回图片的直接下载URL（动态使用，不暴露）
+
 }
